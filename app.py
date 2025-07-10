@@ -218,6 +218,34 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
         # Extrair apenas o primeiro nome do cliente
         primeiro_nome = obter_primeiro_nome(nome_cliente)
         
+        # Buscar dados adicionais do cliente na tabela leads
+        dados_cliente = {}
+        try:
+            # Obter o número formatado do cliente
+            numero_formatado = None
+            # Verificar se temos o número do cliente nas conversas
+            response_conversas = supabase.table("Conversas").select("numero").eq("nome", nome_cliente).limit(1).execute()
+            if response_conversas.data and response_conversas.data[0]["numero"]:
+                numero_formatado = formatar_numero_whatsapp(response_conversas.data[0]["numero"])
+            
+            if numero_formatado:
+                response = supabase.table("leads").select("*").eq("phone", numero_formatado).execute()
+                if response.data:
+                    dados_cliente = response.data[0]
+                    print(f"Dados do cliente encontrados: {dados_cliente}")
+        except Exception as e:
+            print(f"Erro ao buscar dados adicionais do cliente: {e}")
+        
+        # Valores padrão para as variáveis
+        cargo = dados_cliente.get('cargo', 'profissional')
+        empresa = dados_cliente.get('empresa', 'sua empresa')
+        desafio = dados_cliente.get('desafio', 'melhorar resultados comerciais')
+        tipo_de_contas = dados_cliente.get('tipo_de_contas', 'clientes potenciais')
+        quantidade_de_funcionarios = dados_cliente.get('quantidade_de_funcionarios', 'vários')
+        sobrenome = dados_cliente.get('sobrenome', '')
+        linkedin = dados_cliente.get('linkedin', '')
+        celular = dados_cliente.get('phone', '')
+        
         # Construir o histórico de mensagens para o contexto
         messages = [
             {"role": "system", "content": f"""
@@ -227,13 +255,13 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
 
             Importante: Este lead já forneceu as seguintes informações no formulário:
 
-            {{nome}}, {{sobrenome}}, {{cargo}}, {{empresa}}, {{linkedin}}, {{celular}};
+            {primeiro_nome}, {sobrenome}, {cargo}, {empresa}, {linkedin}, {celular};
 
-            {{desafio}} relatado por ele;
+            {desafio} relatado por ele;
 
-            {{tipo_de_contas}} que deseja conquistar;
+            {tipo_de_contas} que deseja conquistar;
 
-            {{quantidade_de_funcionários}} da empresa.
+            {quantidade_de_funcionarios} da empresa.
 
             Regras:
 
@@ -241,7 +269,7 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
 
             Inicie a conversa com acolhimento direto e natural, por exemplo:
 
-            "Fala, {{nome}}! Tudo certo? Sou Wald, agente de IA da Sales Pirates. Vi aqui que você pediu pra falar com a gente. Antes de te conectar com um dos nossos especialistas humanos, posso entender um pouco melhor o cenário de vocês aí na {{empresa}}?"
+            "Fala, {primeiro_nome}! Tudo certo? Sou Wald, agente de IA da Sales Pirates. Vi aqui que você pediu pra falar com a gente. Antes de te conectar com um dos nossos especialistas humanos, posso entender um pouco melhor o cenário de vocês aí na {empresa}?"
 
             Use as informações já fornecidas para contextualizar e construir a conversa. Busque também entender o segmento de atuação, solução oferecida e perfil de cliente ideal antes de iniciar o Spin Selling.
 
@@ -269,7 +297,7 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
 
             Se o lead demonstrar desinteresse, siga o subprompt 3
 
-            Sempre que possível, personalize com os dados disponíveis: {{nome}}, {{cargo}}, {{empresa}}, {{desafio}}, {{tipo_de_contas}}, {{quantidade_de_funcionários}}.
+            Sempre que possível, personalize com os dados disponíveis: {primeiro_nome}, {cargo}, {empresa}, {desafio}, {tipo_de_contas}, {quantidade_de_funcionarios}.
 
             A saída esperada é uma resposta inicial e uma conversa de WhatsApp, conduzida por Wald, com linguagem leve, fluidez, contexto e estratégia — interpretando com inteligência os dados do formulário, sem desperdiçar ou repetir perguntas desnecessárias.
 
@@ -322,7 +350,7 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
 
             Use no máximo 2 a 3 frases curtas por mensagem.
 
-            Sempre que possível, use os campos dinâmicos: {{nome}}, {{cargo}}, {{empresa}}.
+            Sempre que possível, use os campos dinâmicos: {primeiro_nome}, {cargo}, {empresa}.
 
             A saída esperada é uma resposta que dê continuidade à conversa no WhatsApp, como se fosse enviada por Wald, com naturalidade, estratégia e sensibilidade — adaptando à realidade e ao cargo do lead, e respeitando o progresso do SPIN Selling.
 
@@ -347,7 +375,7 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
             Se o lead demonstrar clareza sobre a necessidade ou intenção de seguir, encerre com:
             "Perfeito, {primeiro_nome}. Vou passar essas informações para um dos nossos especialistas humanos aqui na Sales Pirates — ele vai te chamar em breve pra seguir esse papo, beleza?"
 
-            Sempre que possível, use os campos dinâmicos: {{nome}}, {{cargo}}, {{empresa}}.
+            Sempre que possível, use os campos dinâmicos: {primeiro_nome}, {cargo}, {empresa}.
 
             A saída esperada é uma resposta consultiva, fluida e estratégica que:
 
@@ -374,7 +402,7 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
 
             Se essas informações não estiverem disponíveis no banco de dados, colete essas informações de maneira natural e distribuída ao longo da conversa. Use observações e perguntas conectadas ao que o lead falou, respeitando o tom consultivo e fluido da conversa. Exemplo:
 
-            "Ah, legal! Só pra eu entender melhor o cenário de vocês aí na {{empresa}}… vocês atuam com que tipo de cliente hoje?"
+            "Ah, legal! Só pra eu entender melhor o cenário de vocês aí na {empresa}… vocês atuam com que tipo de cliente hoje?"
 
             Essas informações devem ser usadas para:
 
@@ -389,7 +417,7 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
             Exemplo de uso dessas informações:
             Se o lead informa que atua no segmento educacional com escolas particulares, e vende soluções de gestão financeira para diretores, você pode adaptar uma pergunta de implicação assim:
 
-            "Imagina só, {{nome}}... se essa falha de acompanhamento financeiro que você comentou impactar a previsão de mensalidade aí nas escolas, pode virar dor de cabeça pros diretores, né?"
+            "Imagina só, {primeiro_nome}... se essa falha de acompanhamento financeiro que você comentou impactar a previsão de mensalidade aí nas escolas, pode virar dor de cabeça pros diretores, né?"
 
             Esse tipo de contextualização mostra que você entendeu o cenário da empresa e aumenta a relevância da conversa, sem perder o tom leve.
 
@@ -410,7 +438,7 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
 
             Exemplos de resposta padrão:
 
-            "Opa, {{nome}}! Eu sou focado aqui no comercial da Sales Pirates, beleza? Bora voltar pro seu cenário aí 😉"
+            "Opa, {primeiro_nome}! Eu sou focado aqui no comercial da Sales Pirates, beleza? Bora voltar pro seu cenário aí 😉"
 
             "Esses bastidores eu deixo pros humanos daqui 😂 Mas me conta aí, como tá seu processo comercial hoje?"
 
@@ -439,6 +467,18 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
         if primeiro_nome:
             resposta = resposta.replace("{{nome}}", primeiro_nome)
             resposta = resposta.replace("{nome}", primeiro_nome)
+        
+        # Substituir outras variáveis que possam ter escapado
+        resposta = resposta.replace("{{cargo}}", cargo)
+        resposta = resposta.replace("{cargo}", cargo)
+        resposta = resposta.replace("{{empresa}}", empresa)
+        resposta = resposta.replace("{empresa}", empresa)
+        resposta = resposta.replace("{{desafio}}", desafio)
+        resposta = resposta.replace("{desafio}", desafio)
+        resposta = resposta.replace("{{tipo_de_contas}}", tipo_de_contas)
+        resposta = resposta.replace("{tipo_de_contas}", tipo_de_contas)
+        resposta = resposta.replace("{{quantidade_de_funcionários}}", quantidade_de_funcionarios)
+        resposta = resposta.replace("{quantidade_de_funcionários}", quantidade_de_funcionarios)
         
         # Removido código de substituição de link
         
