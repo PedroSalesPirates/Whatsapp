@@ -1373,12 +1373,12 @@ def testar():
     """Endpoint para testar o envio de mensagem para a teste"""
     try:
         # Busca a usuária na tabela biblioteca-ia
-        response = supabase.table("biblioteca-ia").select("*").eq("nome", "Pedro").execute()
+        response = supabase.table("biblioteca-ia").select("*").eq("nome", "João").execute()
         
         if not response.data:
             print("Usuário não encontrado. Tentando buscar com ILIKE...")
             # Tenta buscar com ILIKE para ser menos restritivo
-            response = supabase.table("biblioteca-ia").select("*").ilike("nome", "%Pedro%").execute()
+            response = supabase.table("biblioteca-ia").select("*").ilike("nome", "%João%").execute()
             
             if not response.data:
                 print("Nenhum usuário encontrado.")
