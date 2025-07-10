@@ -1,4 +1,4 @@
-from flask import Flask, redirect, url_for, jsonify
+from flask import Flask, redirect, url_for, jsonify, request
 
 # Importar os aplicativos Flask de cada arquivo
 import app as app_leads_module
@@ -41,6 +41,67 @@ for rule in app_contato_module.app.url_map.iter_rules():
         
     app.add_url_rule(f"/contato{endpoint_rule}", f"contato_{rule.endpoint}", view_func, methods=rule.methods)
 
+# Adicionar rotas diretas para webhooks importantes
+@app.route('/on-message-received', methods=['GET', 'POST'])
+def webhook_direct():
+    """Redireciona para ambos os webhooks de mensagem recebida"""
+    try:
+        # Primeiro tenta processar com o app de leads
+        response_leads = app_leads_module.on_message_received()
+        print("Webhook processado pelo app_leads")
+        return response_leads
+    except Exception as e:
+        print(f"Erro ao processar webhook com app_leads: {e}")
+        try:
+            # Se falhar, tenta com o app de contato
+            response_contato = app_contato_module.on_message_received()
+            print("Webhook processado pelo app_contato")
+            return response_contato
+        except Exception as e:
+            print(f"Erro ao processar webhook com app_contato: {e}")
+            return jsonify({"status": "error", "message": "Erro ao processar webhook"}), 500
+
+# Adicionar outras rotas de webhook diretas
+webhook_routes = [
+    '/webhook-status', 
+    '/webhook-delivery', 
+    '/webhook-connected', 
+    '/webhook-disconnected',
+    '/webhook-presence',
+    '/webhook',
+    '/webhook-received',
+    '/receive'
+]
+
+# Função para criar handlers de webhook
+def create_webhook_handler(webhook_name):
+    def webhook_handler():
+        try:
+            # Primeiro tenta processar com o app de leads
+            handler = getattr(app_leads_module, webhook_name.replace('-', '_'))
+            response = handler()
+            print(f"Webhook {webhook_name} processado pelo app_leads")
+            return response
+        except Exception as e:
+            print(f"Erro ao processar {webhook_name} com app_leads: {e}")
+            try:
+                # Se falhar, tenta com o app de contato
+                handler = getattr(app_contato_module, webhook_name.replace('-', '_'))
+                response = handler()
+                print(f"Webhook {webhook_name} processado pelo app_contato")
+                return response
+            except Exception as e:
+                print(f"Erro ao processar {webhook_name} com app_contato: {e}")
+                return jsonify({"status": "error", "message": f"Erro ao processar {webhook_name}"}), 500
+    
+    return webhook_handler
+
+# Registrar todas as rotas de webhook
+for route in webhook_routes:
+    endpoint_name = route.replace('/', '').replace('-', '_')
+    handler = create_webhook_handler(endpoint_name)
+    app.add_url_rule(route, f"direct_{endpoint_name}", handler, methods=['GET', 'POST'])
+
 # Adicionar rotas de teste diretas
 @app.route('/leads-test')
 def leads_test():
@@ -61,6 +122,14 @@ def index():
     </ul>
     <p>Teste rápido: <a href="/leads-test">Testar App Leads</a> | <a href="/contato-test">Testar App Contato</a></p>
     <p>Teste de envio: <a href="/leads/testar">Testar Envio Leads</a> | <a href="/contato/testar">Testar Envio Contato</a></p>
+    <p>Webhooks configurados na raiz:</p>
+    <ul>
+        <li>/on-message-received</li>
+        <li>/webhook</li>
+        <li>/webhook-status</li>
+        <li>/webhook-delivery</li>
+        <li>... e outros</li>
+    </ul>
     """
 
 # Para compatibilidade com gunicorn
