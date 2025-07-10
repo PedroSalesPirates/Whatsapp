@@ -1546,10 +1546,10 @@ def enviar_para_todos():
         # Buscar todos os clientes na tabela biblioteca-ia
         if force:
             # Se forçar, busca todos os clientes
-            response = supabase.table("biblioteca-ia").select("*").execute()
+            response = supabase.table("biblioteca-ia").select("Pedro").execute()
         else:
             # Caso contrário, busca apenas os que não receberam mensagem ainda
-            response = supabase.table("biblioteca-ia").select("*").or_("mensagem_enviada.is.null,mensagem_enviada.eq.false").execute()
+            response = supabase.table("biblioteca-ia").select("Pedro").or_("mensagem_enviada.is.null,mensagem_enviada.eq.false").execute()
         
         if not response.data:
             return jsonify({
@@ -1597,8 +1597,48 @@ def enviar_para_todos():
                 print(f"Cargo: {cargo}")
                 print(f"Empresa: {empresa}")
                 
-                # Gera mensagem personalizada
-                mensagem = gerar_mensagem_llm(nome, cargo, empresa)
+                # Obter histórico da conversa (se existir)
+                historico = obter_historico_conversa(whatsapp_formatado)
+                
+                # Verificar se já existe histórico
+                if historico:
+                    # Se já existe histórico, gera resposta com base no contexto
+                    # Usa a última mensagem do cliente como referência, ou uma mensagem padrão se não houver
+                    ultima_mensagem_cliente = None
+                    for msg in reversed(historico):
+                        if msg["role"] == "user":
+                            ultima_mensagem_cliente = msg["content"]
+                            break
+                    
+                    if ultima_mensagem_cliente:
+                        # Gera resposta com base no histórico e na última mensagem
+                        mensagem = gerar_resposta_ia(historico, ultima_mensagem_cliente, nome)
+                        
+                        # Verificação adicional para placeholders que possam ter escapado
+                        primeiro_nome = obter_primeiro_nome(nome)
+                        if "{{nome}}" in mensagem:
+                            mensagem = mensagem.replace("{{nome}}", primeiro_nome)
+                            print("Substituído placeholder {{nome}} pelo primeiro nome do cliente")
+                        if "{nome}" in mensagem:
+                            mensagem = mensagem.replace("{nome}", primeiro_nome)
+                            print("Substituído placeholder {nome} pelo primeiro nome do cliente")
+                        
+                        # Verificar se há repetições com o histórico completo
+                        tem_repeticao, mensagem_corrigida = verificar_repeticoes(historico, mensagem)
+                        if tem_repeticao:
+                            print("Detectada repetição na resposta. Usando versão corrigida.")
+                            mensagem = mensagem_corrigida
+                    else:
+                        # Se não encontrou mensagem do cliente, usa mensagem inicial
+                        mensagem = gerar_mensagem_llm(nome, cargo, empresa)
+                else:
+                    # Se não há histórico, gera mensagem inicial
+                    mensagem = gerar_mensagem_llm(nome, cargo, empresa)
+                
+                # Adiciona um tempo de espera para simular digitação humana
+                tempo_espera = min(1 + (len(mensagem) / 100), 3)  # Tempo reduzido para envio em massa
+                print(f"Aguardando {tempo_espera:.1f} segundos antes de enviar...")
+                time.sleep(tempo_espera)
                 
                 # Envia mensagem
                 sucesso = enviar_mensagem_whatsapp(whatsapp_formatado, mensagem)
@@ -1614,7 +1654,8 @@ def enviar_para_todos():
                         "nome": nome,
                         "whatsapp": whatsapp_formatado,
                         "status": "sucesso",
-                        "mensagem": mensagem
+                        "mensagem": mensagem,
+                        "com_historico": len(historico) > 0
                     })
                     
                     sucessos += 1
