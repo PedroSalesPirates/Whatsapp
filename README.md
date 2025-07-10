@@ -10,6 +10,7 @@ Este projeto permite enviar mensagens pelo WhatsApp e manter conversas automatiz
 - Armazenamento do histórico de conversas no Supabase
 - Personalização das respostas com base no histórico
 - Suporte para dois aplicativos diferentes (leads e contatos)
+- Envio em massa de mensagens para todos os clientes
 
 ## Requisitos
 
@@ -101,6 +102,29 @@ POST /contato/enviar-mensagem
   "numero": "5511999999999",
   "mensagem": "Olá! Tudo bem? Sou o Wald da Sales Pirates."
 }
+```
+
+### Enviar mensagens em massa
+
+Para enviar mensagens para todos os clientes que ainda não receberam a primeira abordagem:
+
+#### Para app.py (leads):
+
+```
+GET /leads/enviar-para-todos
+```
+
+#### Para appContato.py (contatos):
+
+```
+GET /contato/enviar-para-todos
+```
+
+Para forçar o reenvio mesmo para clientes que já receberam mensagens:
+
+```
+GET /leads/enviar-para-todos?force=true
+GET /contato/enviar-para-todos?force=true
 ```
 
 ### Testar o sistema

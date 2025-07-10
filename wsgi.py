@@ -122,6 +122,7 @@ def index():
     </ul>
     <p>Teste rápido: <a href="/leads-test">Testar App Leads</a> | <a href="/contato-test">Testar App Contato</a></p>
     <p>Teste de envio: <a href="/leads/testar">Testar Envio Leads</a> | <a href="/contato/testar">Testar Envio Contato</a></p>
+    <p><strong>Envio em massa:</strong> <a href="/leads/enviar-para-todos">Enviar para todos os Leads</a> | <a href="/contato/enviar-para-todos">Enviar para todos os Contatos</a></p>
     <p>Webhooks configurados na raiz:</p>
     <ul>
         <li>/on-message-received</li>
