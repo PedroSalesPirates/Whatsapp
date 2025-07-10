@@ -438,13 +438,13 @@ def configurar_todos_webhooks(url_base):
     """Configura todos os webhooks na Z-API para a mesma URL base"""
     # Mapeamento de endpoints para configuração de webhooks e seus caminhos correspondentes
     endpoints_map = {
-        "update-webhook-received": "/on-message-received",           # Ao receber
-        "update-webhook-received-delivery": "/on-message-received",  # Ao receber (com notificação de enviadas por mim)
-        "update-webhook-message-status": "/webhook-status",          # Status da mensagem
-        "update-webhook-delivery": "/webhook-delivery",              # Ao enviar
-        "update-webhook-connected": "/webhook-connected",            # Ao conectar
-        "update-webhook-disconnected": "/webhook-disconnected",      # Ao desconectar
-        "update-webhook-presence": "/webhook-presence"               # Presença do chat
+        "update-webhook-received": "/contato/on-message-received",           # Ao receber
+        "update-webhook-received-delivery": "/contato/on-message-received",  # Ao receber (com notificação de enviadas por mim)
+        "update-webhook-message-status": "/contato/webhook-status",          # Status da mensagem
+        "update-webhook-delivery": "/contato/webhook-delivery",              # Ao enviar
+        "update-webhook-connected": "/contato/webhook-connected",            # Ao conectar
+        "update-webhook-disconnected": "/contato/webhook-disconnected",      # Ao desconectar
+        "update-webhook-presence": "/contato/webhook-presence"               # Presença do chat
     }
     
     # Lista de endpoints para configuração de webhooks
@@ -1215,7 +1215,7 @@ def gerar_mensagem_llm(nome, cargo, empresa):
 
     Mencione que vimos que ele solicitou acesso à Biblioteca IA, e inclua uma frase curta valorizando o conteúdo, como: "Esse material é uma mina de ouro pra quem tá querendo usar IA no comercial."
 
-    Forneça o link direto para acesso à Biblioteca IA: www.salespirates.com.br
+    Forneça o link direto para acesso à Biblioteca IA: https://workdrive.zohoexternal.com/folder/ve8di4c62be7c8ac54dbb9e50f02fa98deeee
 
     Finalize com uma pergunta aberta que incentive o diálogo e inclua um pequeno incentivo para ele responder (ex: "posso te mandar algo complementar depois", ou "pra eu entender melhor como posso te ajudar com isso").
 
@@ -1226,7 +1226,7 @@ def gerar_mensagem_llm(nome, cargo, empresa):
     A saída esperada é uma única mensagem de WhatsApp, pronta para ser enviada automaticamente, sem explicações ou introduções.
 
     Exemplo de estrutura:
-    "Fala {{nome}}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você acessou a Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: www.salespirates.com.br. Posso te mandar algo complementar depois?"
+    "Fala {{nome}}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você acessou a Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: https://workdrive.zohoexternal.com/folder/ve8di4c62be7c8ac54dbb9e50f02fa98deeee. Posso te mandar algo complementar depois?"
     """
     
     try:
@@ -1252,13 +1252,13 @@ def gerar_mensagem_llm(nome, cargo, empresa):
         if "{nome}" in mensagem or "{{nome}}" in mensagem:
             print("AVISO: Ainda há placeholders na mensagem!")
             # Força a substituição com uma mensagem garantida
-            mensagem = f"Fala, {primeiro_nome.strip()}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você solicitou acesso à Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: www.salespirates.com.br. Me conta rapidinho: como tá o processo comercial aí na sua empresa?"
+            mensagem = f"Fala, {primeiro_nome.strip()}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você solicitou acesso à Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: https://workdrive.zohoexternal.com/folder/ve8di4c62be7c8ac54dbb9e50f02fa98deeee. Me conta rapidinho: como tá o processo comercial aí na sua empresa?"
         
         return mensagem
     except Exception as e:
         print(f"Erro ao gerar mensagem: {e}")
         # Fallback para mensagem padrão garantida
-        return f"Fala, {primeiro_nome.strip()}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você solicitou acesso à Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: www.salespirates.com.br. Me conta rapidinho: como tá o processo comercial aí na sua empresa?"
+        return f"Fala, {primeiro_nome.strip()}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você solicitou acesso à Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: https://workdrive.zohoexternal.com/folder/ve8di4c62be7c8ac54dbb9e50f02fa98deeee. Me conta rapidinho: como tá o processo comercial aí na sua empresa?"
 
 @app.route('/testar-mensagem', methods=['GET'])
 def testar_mensagem():
@@ -1284,7 +1284,7 @@ def testar_mensagem():
                 "status": "warning",
                 "message": "Substituição de placeholders falhou",
                 "mensagem_original": mensagem,
-                "mensagem_corrigida": f"Fala, {nome}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você solicitou acesso à Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: www.salespirates.com.br. Me conta rapidinho: como tá o processo comercial aí na sua empresa?"
+                "mensagem_corrigida": f"Fala, {nome}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você solicitou acesso à Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: https://workdrive.zohoexternal.com/folder/ve8di4c62be7c8ac54dbb9e50f02fa98deeeer. Me conta rapidinho: como tá o processo comercial aí na sua empresa?"
             }), 200
         
         return jsonify({
@@ -1373,12 +1373,12 @@ def testar():
     """Endpoint para testar o envio de mensagem para a teste"""
     try:
         # Busca a usuária na tabela biblioteca-ia
-        response = supabase.table("biblioteca-ia").select("*").eq("nome", "João").execute()
+        response = supabase.table("biblioteca-ia").select("*").eq("nome", "Pedro").execute()
         
         if not response.data:
             print("Usuário não encontrado. Tentando buscar com ILIKE...")
             # Tenta buscar com ILIKE para ser menos restritivo
-            response = supabase.table("biblioteca-ia").select("*").ilike("nome", "%João%").execute()
+            response = supabase.table("biblioteca-ia").select("*").ilike("nome", "%Pedro%").execute()
             
             if not response.data:
                 print("Nenhum usuário encontrado.")

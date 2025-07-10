@@ -9,6 +9,7 @@ Este projeto permite enviar mensagens pelo WhatsApp e manter conversas automatiz
 - Respostas automáticas usando OpenAI GPT
 - Armazenamento do histórico de conversas no Supabase
 - Personalização das respostas com base no histórico
+- Suporte para dois aplicativos diferentes (leads e contatos)
 
 ## Requisitos
 
@@ -17,6 +18,7 @@ Este projeto permite enviar mensagens pelo WhatsApp e manter conversas automatiz
 - Supabase
 - OpenAI
 - Z-API (conta e configuração)
+- Werkzeug
 
 ## Instalação
 
@@ -42,56 +44,87 @@ pip install -r requirements.txt
 ### Iniciar o servidor
 
 ```
-python appContato.py
+python wsgi.py
+```
+
+### Estrutura do aplicativo
+
+O sistema agora consiste em dois aplicativos Flask separados que são servidos pelo mesmo servidor:
+
+1. **app.py** - Gerencia leads e usa a tabela "leads" no Supabase
+   - Acessível através do prefixo `/leads`
+   - Exemplo: `/leads/on-message-received`
+
+2. **appContato.py** - Gerencia contatos e usa a tabela "biblioteca-ia" no Supabase
+   - Acessível através do prefixo `/contato`
+   - Exemplo: `/contato/on-message-received`
+
+### Configurar Webhooks na Z-API
+
+Para configurar os webhooks, você precisa usar os endpoints específicos para cada aplicativo:
+
+#### Para app.py (leads):
+
+```
+POST /leads/configurar-todos-webhooks
+{
+  "url": "https://seu-servidor.com"
+}
+```
+
+#### Para appContato.py (contatos):
+
+```
+POST /contato/configurar-todos-webhooks
+{
+  "url": "https://seu-servidor.com"
+}
 ```
 
 ### Enviar mensagem inicial
 
-Faça uma requisição POST para `/enviar-mensagem` com o seguinte JSON:
+#### Para app.py (leads):
 
-```json
+```
+POST /leads/enviar-mensagem
 {
   "numero": "5511999999999",
   "mensagem": "Olá! Tudo bem? Sou o Wald da Sales Pirates."
 }
 ```
 
-### Configurar Webhook na Z-API
+#### Para appContato.py (contatos):
 
-Existem duas maneiras de configurar o webhook:
-
-#### 1. Pelo painel da Z-API:
-
-1. Acesse sua conta na Z-API em https://app.z-api.io/
-2. Selecione sua instância
-3. No menu lateral, clique em "Webhooks"
-4. Para cada evento que deseja monitorar:
-   - Clique no evento (ex: "Ao receber")
-   - Ative o botão para habilitar
-   - No campo URL, insira: `https://seu-servidor.com/webhook`
-   - Clique em Salvar
-
-#### 2. Pela API (recomendado):
-
-Faça uma requisição POST para `/configurar-todos-webhooks` com o seguinte JSON:
-
-```json
+```
+POST /contato/enviar-mensagem
 {
-  "url": "https://seu-servidor.com/webhook"
+  "numero": "5511999999999",
+  "mensagem": "Olá! Tudo bem? Sou o Wald da Sales Pirates."
 }
 ```
 
-Isso configurará automaticamente todos os webhooks necessários para a mesma URL.
+### Testar o sistema
 
-## Como funciona
+#### Para app.py (leads):
 
-1. Você envia uma mensagem inicial para um cliente
-2. O cliente responde
-3. O sistema recebe a mensagem via webhook
-4. A IA gera uma resposta com base no histórico da conversa
-5. A resposta é enviada automaticamente para o cliente
-6. Todas as mensagens são salvas no banco de dados
+- Testar envio: `/leads/testar`
+- Testar webhook: `/leads/webhook-test`
+- Ver conversas: `/leads/conversas`
 
-## Personalização
+#### Para appContato.py (contatos):
 
-Você pode personalizar o comportamento da IA editando o prompt no método `gerar_resposta_ia()` no arquivo `appContato.py`. 
+- Testar envio: `/contato/testar`
+- Testar webhook: `/contato/webhook-test`
+- Ver conversas: `/contato/conversas`
+
+## Implantação no Render
+
+Para implantar no Render:
+
+1. Conecte seu repositório Git ao Render
+2. Selecione o tipo de serviço "Web Service"
+3. Defina o comando de construção como `pip install -r requirements.txt`
+4. Defina o comando de inicialização como `gunicorn wsgi:application`
+5. Defina a versão do Python (3.7+)
+
+O sistema usará o arquivo `Procfile` para iniciar o servidor com o Gunicorn. 
