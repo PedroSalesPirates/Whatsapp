@@ -1,8 +1,7 @@
+flask
+gunicorn
 supabase
 python-dotenv
+openai
 requests
-openai 
-flask 
-gunicorn 
-uuid
 werkzeug

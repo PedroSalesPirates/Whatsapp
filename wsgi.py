@@ -50,17 +50,6 @@ def leads_test():
 def contato_test():
     return jsonify({"status": "success", "message": "App Contato está funcionando!"})
 
-# Adicionar rotas específicas para as funções de teste
-@app.route('/leads/testar')
-def leads_testar():
-    # Chamar a função testar do app_leads
-    return app_leads_module.testar()
-
-@app.route('/contato/testar')
-def contato_testar():
-    # Chamar a função testar do app_contato
-    return app_contato_module.testar()
-
 @app.route('/')
 def index():
     return """
