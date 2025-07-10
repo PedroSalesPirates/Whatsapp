@@ -2,6 +2,6 @@ flask
 gunicorn
 supabase
 python-dotenv
-openai==0.28.1
+openai
 requests
 werkzeug
