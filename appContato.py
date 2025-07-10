@@ -22,10 +22,7 @@ Z_API_TOKEN = "24F698E693CFA794F9F34282"
 Z_API_CLIENT_TOKEN = "Fb918900e30404a43b39122354c4f21b8S"
 
 # Configuração da OpenAI
-api_key = "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"
-openai.api_key = api_key
-# Configurar o cliente OpenAI com a API key
-client = openai.OpenAI(api_key=api_key)
+openai.api_key = "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"
 
 # Configuração para armazenamento - Apenas Supabase
 USAR_ARMAZENAMENTO_LOCAL = False
@@ -318,7 +315,7 @@ def gerar_resposta_ia(historico_conversa, mensagem_cliente, nome_cliente=""):
         messages.append({"role": "user", "content": mensagem_cliente})
         
         # Gerar resposta
-        response = client.chat.completions.create(
+        response = openai.chat.completions.create(
             model="gpt-4-turbo",
             messages=messages,
             max_tokens=200,
@@ -1233,7 +1230,7 @@ def gerar_mensagem_llm(nome, cargo, empresa):
     """
     
     try:
-        response = client.chat.completions.create(
+        response = openai.chat.completions.create(
             model="gpt-4-turbo",
             messages=[{"role": "system", "content": prompt}],
             max_tokens=200,
