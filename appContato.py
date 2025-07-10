@@ -1543,13 +1543,25 @@ def enviar_para_todos():
         # Parâmetro para forçar reenvio para todos, mesmo que já tenham recebido
         force = request.args.get('force', '').lower() == 'true'
         
+        # Parâmetro opcional para filtrar por nome
+        nome_filtro = request.args.get('nome', '')
+        
         # Buscar todos os clientes na tabela biblioteca-ia
-        if force:
-            # Se forçar, busca todos os clientes
-            response = supabase.table("biblioteca-ia").select("Pedro").execute()
+        if nome_filtro:
+            print(f"Filtrando clientes pelo nome: {nome_filtro}")
+            # Se especificou um nome, filtra por ele
+            if force:
+                response = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").execute()
+            else:
+                response = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").or_("mensagem_enviada.is.null,mensagem_enviada.eq.false").execute()
         else:
-            # Caso contrário, busca apenas os que não receberam mensagem ainda
-            response = supabase.table("biblioteca-ia").select("Pedro").or_("mensagem_enviada.is.null,mensagem_enviada.eq.false").execute()
+            # Sem filtro de nome
+            if force:
+                # Se forçar, busca todos os clientes
+                response = supabase.table("biblioteca-ia").select("*").execute()
+            else:
+                # Caso contrário, busca apenas os que não receberam mensagem ainda
+                response = supabase.table("biblioteca-ia").select("*").or_("mensagem_enviada.is.null,mensagem_enviada.eq.false").execute()
         
         if not response.data:
             return jsonify({
