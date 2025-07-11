@@ -56,41 +56,11 @@ def formatar_numero_whatsapp(numero):
     # Remove caracteres não numéricos
     numero_limpo = ''.join(filter(str.isdigit, numero))
     
-    # Verifica se o número está vazio
-    if not numero_limpo:
-        print(f"AVISO: Número vazio ou inválido: '{numero}'")
-        return ""
-    
-    # Tratamento para números com diferentes formatos
-    if len(numero_limpo) < 8:
-        # Número muito curto, provavelmente inválido
-        print(f"AVISO: Número muito curto: '{numero}' -> '{numero_limpo}'")
-        return numero_limpo
-    
     # Garante que o número tenha o formato correto (com código do país)
-    # Números com 8-9 dígitos: apenas número do telefone (adiciona 55 + DDD padrão 11)
-    if len(numero_limpo) <= 9:
-        numero_formatado = f"5511{numero_limpo}"
-        print(f"Formatando número curto: '{numero}' -> '{numero_formatado}'")
-    # Números com 10-11 dígitos: DDD + número (adiciona 55)
-    elif len(numero_limpo) <= 11:
+    if len(numero_limpo) <= 11:  # Sem código do país
         numero_formatado = f"55{numero_limpo}"
-        print(f"Formatando número com DDD: '{numero}' -> '{numero_formatado}'")
-    # Números com 12-13 dígitos: provavelmente já tem código do país
     else:
-        # Verifica se o número já começa com 55 (Brasil)
-        if numero_limpo.startswith("55"):
-            numero_formatado = numero_limpo
-            print(f"Número já formatado: '{numero}' -> '{numero_formatado}'")
-        else:
-            # Se não começa com 55, pode ser um número internacional ou mal formatado
-            # Neste caso, vamos adicionar 55 apenas se o número tiver menos de 13 dígitos
-            if len(numero_limpo) < 13:
-                numero_formatado = f"55{numero_limpo}"
-                print(f"Formatando número possivelmente internacional: '{numero}' -> '{numero_formatado}'")
-            else:
-                numero_formatado = numero_limpo
-                print(f"Mantendo número longo como está: '{numero}' -> '{numero_formatado}'")
+        numero_formatado = numero_limpo
     
     return numero_formatado
 
