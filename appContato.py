@@ -438,13 +438,13 @@ def configurar_todos_webhooks(url_base):
     """Configura todos os webhooks na Z-API para a mesma URL base"""
     # Mapeamento de endpoints para configuração de webhooks e seus caminhos correspondentes
     endpoints_map = {
-        "update-webhook-received": "/on-message-received",           # Ao receber (usar a rota raiz)
-        "update-webhook-received-delivery": "/on-message-received",  # Ao receber (com notificação de enviadas por mim)
-        "update-webhook-message-status": "/webhook-status",          # Status da mensagem
-        "update-webhook-delivery": "/webhook-delivery",              # Ao enviar
-        "update-webhook-connected": "/webhook-connected",            # Ao conectar
-        "update-webhook-disconnected": "/webhook-disconnected",      # Ao desconectar
-        "update-webhook-presence": "/webhook-presence"               # Presença do chat
+        "update-webhook-received": "/contato/on-message-received",           # Ao receber
+        "update-webhook-received-delivery": "/contato/on-message-received",  # Ao receber (com notificação de enviadas por mim)
+        "update-webhook-message-status": "/contato/webhook-status",          # Status da mensagem
+        "update-webhook-delivery": "/contato/webhook-delivery",              # Ao enviar
+        "update-webhook-connected": "/contato/webhook-connected",            # Ao conectar
+        "update-webhook-disconnected": "/contato/webhook-disconnected",      # Ao desconectar
+        "update-webhook-presence": "/contato/webhook-presence"               # Presença do chat
     }
     
     # Lista de endpoints para configuração de webhooks
@@ -1547,65 +1547,59 @@ def enviar_para_todos():
         nome_filtro = request.args.get('nome', '')
         
         # Buscar todos os clientes na tabela biblioteca-ia
-        try:
-            if nome_filtro:
-                print(f"Filtrando clientes pelo nome: {nome_filtro}")
-                # Se especificou um nome, filtra por ele
-                if force:
+        if nome_filtro:
+            print(f"Filtrando clientes pelo nome: {nome_filtro}")
+            # Se especificou um nome, filtra por ele
+            if force:
                     # Forçar envio para todos com o nome especificado
                     response = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").execute()
-                else:
-                    # Buscar clientes com o nome especificado que não receberam mensagem ainda
-                    # Primeiro os que têm mensagem_enviada como null
-                    response_null = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").is_("mensagem_enviada", "null").execute()
-                    
-                    # Depois os que têm mensagem_enviada como false
-                    response_false = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").eq("mensagem_enviada", False).execute()
-                    
-                    # Combinar os resultados
-                    all_data = []
-                    if response_null.data:
-                        all_data.extend(response_null.data)
-                    if response_false.data:
-                        all_data.extend(response_false.data)
-                    
-                    # Criar objeto de resposta
-                    class CombinedResponse:
-                        def __init__(self, data):
-                            self.data = data
-                    
-                    response = CombinedResponse(all_data)
             else:
-                # Sem filtro de nome
-                if force:
-                    # Se forçar, busca todos os clientes
-                    response = supabase.table("biblioteca-ia").select("*").execute()
-                else:
-                    # Buscar clientes que não receberam mensagem ainda
-                    # Primeiro os que têm mensagem_enviada como null
-                    response_null = supabase.table("biblioteca-ia").select("*").is_("mensagem_enviada", "null").execute()
-                    
-                    # Depois os que têm mensagem_enviada como false
-                    response_false = supabase.table("biblioteca-ia").select("*").eq("mensagem_enviada", False).execute()
-                    
-                    # Combinar os resultados
-                    all_data = []
-                    if response_null.data:
-                        all_data.extend(response_null.data)
-                    if response_false.data:
-                        all_data.extend(response_false.data)
-                    
-                    # Criar objeto de resposta
-                    class CombinedResponse:
-                        def __init__(self, data):
-                            self.data = data
-                    
-                    response = CombinedResponse(all_data)
-                    
-            print(f"Total de clientes encontrados: {len(response.data)}")
-        except Exception as e:
-            print(f"Erro na consulta ao Supabase: {e}")
-            return jsonify({"status": "error", "message": f"Erro na consulta: {str(e)}"}), 500
+                # Buscar clientes com o nome especificado que não receberam mensagem ainda
+                # Primeiro os que têm mensagem_enviada como null
+                response_null = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").is_("mensagem_enviada", "null").execute()
+                
+                # Depois os que têm mensagem_enviada como false
+                response_false = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").eq("mensagem_enviada", False).execute()
+                
+                # Combinar os resultados
+                all_data = []
+                if response_null.data:
+                    all_data.extend(response_null.data)
+                if response_false.data:
+                    all_data.extend(response_false.data)
+                
+                # Criar objeto de resposta
+                class CombinedResponse:
+                    def __init__(self, data):
+                        self.data = data
+                
+                response = CombinedResponse(all_data)
+        else:
+            # Sem filtro de nome
+            if force:
+                # Se forçar, busca todos os clientes
+                response = supabase.table("biblioteca-ia").select("*").execute()
+            else:
+                # Caso contrário, busca apenas os que não receberam mensagem ainda
+                # Primeiro os que têm mensagem_enviada como null
+                response_null = supabase.table("biblioteca-ia").select("*").is_("mensagem_enviada", "null").execute()
+                
+                # Depois os que têm mensagem_enviada como false
+                response_false = supabase.table("biblioteca-ia").select("*").eq("mensagem_enviada", False).execute()
+                
+                # Combinar os resultados
+                all_data = []
+                if response_null.data:
+                    all_data.extend(response_null.data)
+                if response_false.data:
+                    all_data.extend(response_false.data)
+                
+                # Criar objeto de resposta
+                class CombinedResponse:
+                    def __init__(self, data):
+                        self.data = data
+                
+                response = CombinedResponse(all_data)
         
         if not response.data:
             return jsonify({
@@ -1652,8 +1646,8 @@ def enviar_para_todos():
                 # Procurar pela última mensagem do cliente
                 ultima_mensagem_cliente = None
                 for mensagem in reversed(historico):
-                    if mensagem["role"] == "user":
-                        ultima_mensagem_cliente = mensagem["content"]
+                    if mensagem["tipo"] == "recebida":
+                        ultima_mensagem_cliente = mensagem["mensagem"]
                         break
                 
                 if ultima_mensagem_cliente:

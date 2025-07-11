@@ -122,44 +122,6 @@ def index():
     </ul>
     <p>Teste rápido: <a href="/leads-test">Testar App Leads</a> | <a href="/contato-test">Testar App Contato</a></p>
     <p>Teste de envio: <a href="/leads/testar">Testar Envio Leads</a> | <a href="/contato/testar">Testar Envio Contato</a></p>
-    <p><strong>Envio em massa:</strong> <a href="/leads/enviar-para-todos">Enviar para todos os Leads</a> | <a href="/contato/enviar-para-todos">Enviar para todos os Contatos</a></p>
-    
-    <h2>Configuração de Webhooks</h2>
-    <p><strong>IMPORTANTE:</strong> Para garantir que o chatbot responda às mensagens dos clientes, configure os webhooks da Z-API para apontarem para as rotas raiz:</p>
-    <form id="configForm" style="margin: 20px; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
-        <label for="baseUrl">URL base do seu servidor (ex: https://seu-servidor.com):</label><br>
-        <input type="text" id="baseUrl" name="url" style="width: 100%; padding: 8px; margin: 10px 0;" placeholder="https://seu-servidor.com"><br>
-        <button type="button" onclick="configurarWebhooks('leads')" style="padding: 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; margin-right: 10px;">Configurar Webhooks Leads</button>
-        <button type="button" onclick="configurarWebhooks('contato')" style="padding: 10px; background-color: #2196F3; color: white; border: none; cursor: pointer;">Configurar Webhooks Contato</button>
-    </form>
-    
-    <script>
-    function configurarWebhooks(app) {
-        const baseUrl = document.getElementById('baseUrl').value;
-        if (!baseUrl) {
-            alert('Por favor, informe a URL base do servidor');
-            return;
-        }
-        
-        fetch(`/${app}/configurar-todos-webhooks`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({url: baseUrl})
-        })
-        .then(response => response.json())
-        .then(data => {
-            alert(`Webhooks ${app} configurados: ${data.message}`);
-            console.log(data);
-        })
-        .catch(error => {
-            alert(`Erro ao configurar webhooks: ${error}`);
-            console.error('Erro:', error);
-        });
-    }
-    </script>
-    
     <p>Webhooks configurados na raiz:</p>
     <ul>
         <li>/on-message-received</li>

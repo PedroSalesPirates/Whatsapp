@@ -10,7 +10,6 @@ Este projeto permite enviar mensagens pelo WhatsApp e manter conversas automatiz
 - Armazenamento do histórico de conversas no Supabase
 - Personalização das respostas com base no histórico
 - Suporte para dois aplicativos diferentes (leads e contatos)
-- Envio em massa de mensagens para todos os clientes
 
 ## Requisitos
 
@@ -62,60 +61,70 @@ O sistema agora consiste em dois aplicativos Flask separados que são servidos p
 
 ### Configurar Webhooks na Z-API
 
-**IMPORTANTE:** Para que o chatbot responda corretamente às mensagens dos clientes, os webhooks devem ser configurados para apontar para as rotas raiz do servidor, não para as rotas específicas de cada aplicativo.
+Para configurar os webhooks, você precisa usar os endpoints específicos para cada aplicativo:
 
-Para configurar os webhooks corretamente:
-
-1. Acesse a página inicial do servidor
-2. Na seção "Configuração de Webhooks", insira a URL base do seu servidor (ex: https://seu-servidor.com)
-3. Clique nos botões "Configurar Webhooks Leads" e "Configurar Webhooks Contato"
-
-Ou configure manualmente através das APIs:
+#### Para app.py (leads):
 
 ```
 POST /leads/configurar-todos-webhooks
 {
   "url": "https://seu-servidor.com"
 }
+```
 
+#### Para appContato.py (contatos):
+
+```
 POST /contato/configurar-todos-webhooks
 {
   "url": "https://seu-servidor.com"
 }
 ```
 
-Os webhooks serão configurados para as seguintes rotas:
-- Ao receber mensagens: `/on-message-received`
-- Status de mensagens: `/webhook-status`
-- Confirmação de entrega: `/webhook-delivery`
-- Outros eventos: `/webhook-connected`, `/webhook-disconnected`, etc.
-
 ### Enviar mensagem inicial
 
-Para enviar uma mensagem inicial para um cliente específico:
+#### Para app.py (leads):
 
 ```
-GET /leads/testar
-GET /contato/testar
+POST /leads/enviar-mensagem
+{
+  "numero": "5511999999999",
+  "mensagem": "Olá! Tudo bem? Sou o Wald da Sales Pirates."
+}
 ```
 
-### Enviar mensagens em massa
-
-Para enviar mensagens para todos os clientes que ainda não receberam a primeira mensagem:
+#### Para appContato.py (contatos):
 
 ```
-GET /leads/enviar-para-todos
-GET /contato/enviar-para-todos
+POST /contato/enviar-mensagem
+{
+  "numero": "5511999999999",
+  "mensagem": "Olá! Tudo bem? Sou o Wald da Sales Pirates."
+}
 ```
 
-Parâmetros opcionais:
-- `force=true` - Enviar para todos os clientes, mesmo que já tenham recebido mensagem
-- `nome=Pedro` - Filtrar clientes pelo nome
+### Testar o sistema
 
-### Solução de problemas
+#### Para app.py (leads):
 
-Se os clientes não estiverem recebendo respostas automáticas após responderem às mensagens:
+- Testar envio: `/leads/testar`
+- Testar webhook: `/leads/webhook-test`
+- Ver conversas: `/leads/conversas`
 
-1. Verifique se os webhooks estão configurados corretamente para apontar para as rotas raiz
-2. Verifique os logs do servidor para identificar possíveis erros
-3. Teste o webhook manualmente usando a rota `/webhook-test` 
+#### Para appContato.py (contatos):
+
+- Testar envio: `/contato/testar`
+- Testar webhook: `/contato/webhook-test`
+- Ver conversas: `/contato/conversas`
+
+## Implantação no Render
+
+Para implantar no Render:
+
+1. Conecte seu repositório Git ao Render
+2. Selecione o tipo de serviço "Web Service"
+3. Defina o comando de construção como `pip install -r requirements.txt`
+4. Defina o comando de inicialização como `gunicorn wsgi:application`
+5. Defina a versão do Python (3.7+)
+
+O sistema usará o arquivo `Procfile` para iniciar o servidor com o Gunicorn. 

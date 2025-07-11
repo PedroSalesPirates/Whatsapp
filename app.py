@@ -591,13 +591,13 @@ def configurar_todos_webhooks(url_base):
     """Configura todos os webhooks na Z-API para a mesma URL base"""
     # Mapeamento de endpoints para configuração de webhooks e seus caminhos correspondentes
     endpoints_map = {
-        "update-webhook-received": "/on-message-received",           # Ao receber (usar a rota raiz)
-        "update-webhook-received-delivery": "/on-message-received",  # Ao receber (com notificação de enviadas por mim)
-        "update-webhook-message-status": "/webhook-status",          # Status da mensagem
-        "update-webhook-delivery": "/webhook-delivery",              # Ao enviar
-        "update-webhook-connected": "/webhook-connected",            # Ao conectar
-        "update-webhook-disconnected": "/webhook-disconnected",      # Ao desconectar
-        "update-webhook-presence": "/webhook-presence"               # Presença do chat
+        "update-webhook-received": "/leads/on-message-received",           # Ao receber
+        "update-webhook-received-delivery": "/leads/on-message-received",  # Ao receber (com notificação de enviadas por mim)
+        "update-webhook-message-status": "/leads/webhook-status",          # Status da mensagem
+        "update-webhook-delivery": "/leads/webhook-delivery",              # Ao enviar
+        "update-webhook-connected": "/leads/webhook-connected",            # Ao conectar
+        "update-webhook-disconnected": "/leads/webhook-disconnected",      # Ao desconectar
+        "update-webhook-presence": "/leads/webhook-presence"               # Presença do chat
     }
     
     # Lista de endpoints para configuração de webhooks
@@ -1678,165 +1678,6 @@ def testar_dani_webhook():
             
     except Exception as e:
         print(f"Erro ao testar webhook com João: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
-@app.route('/enviar-para-todos', methods=['GET'])
-def enviar_para_todos():
-    """Endpoint para enviar mensagem inicial para todos os clientes da tabela leads que ainda não receberam"""
-    try:
-        # Parâmetro para forçar reenvio para todos, mesmo que já tenham recebido
-        force = request.args.get('force', '').lower() == 'true'
-        
-        # Buscar todos os clientes na tabela leads
-        if force:
-            # Se forçar, busca todos os clientes
-            response = supabase.table("leads").select("*").execute()
-        else:
-            # Caso contrário, busca apenas os que não receberam mensagem ainda
-            response = supabase.table("leads").select("*").or_("mensagem_enviada.is.null,mensagem_enviada.eq.false").execute()
-        
-        if not response.data:
-            return jsonify({
-                "status": "info",
-                "message": "Nenhum cliente encontrado para envio de mensagem"
-            }), 200
-            
-        resultados = []
-        sucessos = 0
-        falhas = 0
-        
-        for cliente in response.data:
-            try:
-                nome = cliente.get('name', 'Cliente')
-                whatsapp = cliente.get('phone', '')
-                cargo = cliente.get('cargo', 'profissional')
-                empresa = cliente.get('empresa', 'sua empresa')
-                
-                # Pular se não tiver telefone
-                if not whatsapp:
-                    resultados.append({
-                        "nome": nome,
-                        "status": "pulado",
-                        "motivo": "Telefone não encontrado"
-                    })
-                    falhas += 1
-                    continue
-                
-                # Formatar o número para garantir consistência
-                whatsapp_formatado = formatar_numero_whatsapp(whatsapp)
-                
-                # Verificar se a mensagem já foi enviada (redundante, mas por segurança)
-                mensagem_ja_enviada = cliente.get('mensagem_enviada', False)
-                if mensagem_ja_enviada and not force:
-                    resultados.append({
-                        "nome": nome,
-                        "whatsapp": whatsapp_formatado,
-                        "status": "pulado",
-                        "motivo": "Mensagem já enviada anteriormente"
-                    })
-                    continue
-                
-                print(f"Enviando para: {nome}")
-                print(f"WhatsApp: {whatsapp_formatado}")
-                print(f"Cargo: {cargo}")
-                print(f"Empresa: {empresa}")
-                
-                # Obter histórico da conversa (se existir)
-                historico = obter_historico_conversa(whatsapp_formatado)
-                
-                # Verificar se já existe histórico
-                if historico:
-                    # Se já existe histórico, gera resposta com base no contexto
-                    # Usa a última mensagem do cliente como referência, ou uma mensagem padrão se não houver
-                    ultima_mensagem_cliente = None
-                    for msg in reversed(historico):
-                        if msg["role"] == "user":
-                            ultima_mensagem_cliente = msg["content"]
-                            break
-                    
-                    if ultima_mensagem_cliente:
-                        # Gera resposta com base no histórico e na última mensagem
-                        mensagem = gerar_resposta_ia(historico, ultima_mensagem_cliente, nome)
-                        
-                        # Verificação adicional para placeholders que possam ter escapado
-                        primeiro_nome = obter_primeiro_nome(nome)
-                        if "{{nome}}" in mensagem:
-                            mensagem = mensagem.replace("{{nome}}", primeiro_nome)
-                            print("Substituído placeholder {{nome}} pelo primeiro nome do cliente")
-                        if "{nome}" in mensagem:
-                            mensagem = mensagem.replace("{nome}", primeiro_nome)
-                            print("Substituído placeholder {nome} pelo primeiro nome do cliente")
-                        
-                        # Verificar se há repetições com o histórico completo
-                        tem_repeticao, mensagem_corrigida = verificar_repeticoes(historico, mensagem)
-                        if tem_repeticao:
-                            print("Detectada repetição na resposta. Usando versão corrigida.")
-                            mensagem = mensagem_corrigida
-                    else:
-                        # Se não encontrou mensagem do cliente, usa mensagem inicial
-                        mensagem = gerar_mensagem_llm(nome, cargo, empresa)
-                else:
-                    # Se não há histórico, gera mensagem inicial
-                    mensagem = gerar_mensagem_llm(nome, cargo, empresa)
-                
-                # Adiciona um tempo de espera para simular digitação humana
-                tempo_espera = min(1 + (len(mensagem) / 100), 3)  # Tempo reduzido para envio em massa
-                print(f"Aguardando {tempo_espera:.1f} segundos antes de enviar...")
-                time.sleep(tempo_espera)
-                
-                # Envia mensagem
-                sucesso = enviar_mensagem_whatsapp(whatsapp_formatado, mensagem)
-                
-                if sucesso:
-                    # Salva mensagem enviada
-                    salvar_conversa(whatsapp_formatado, nome, mensagem, "enviada")
-                    
-                    # Atualiza o status no banco de dados
-                    supabase.table("leads").update({"mensagem_enviada": True}).eq("id", cliente['id']).execute()
-                    
-                    resultados.append({
-                        "nome": nome,
-                        "whatsapp": whatsapp_formatado,
-                        "status": "sucesso",
-                        "mensagem": mensagem,
-                        "com_historico": len(historico) > 0
-                    })
-                    
-                    sucessos += 1
-                    
-                    # Aguardar um tempo entre os envios para evitar bloqueios
-                    time.sleep(1)
-                else:
-                    resultados.append({
-                        "nome": nome,
-                        "whatsapp": whatsapp_formatado,
-                        "status": "falha",
-                        "motivo": "Erro ao enviar mensagem"
-                    })
-                    falhas += 1
-                    
-            except Exception as e:
-                print(f"Erro ao processar cliente {cliente.get('name', 'desconhecido')}: {e}")
-                resultados.append({
-                    "nome": cliente.get('name', 'desconhecido'),
-                    "status": "erro",
-                    "motivo": str(e)
-                })
-                falhas += 1
-        
-        return jsonify({
-            "status": "completed",
-            "total_clientes": len(response.data),
-            "sucessos": sucessos,
-            "falhas": falhas,
-            "resultados": resultados
-        })
-            
-    except Exception as e:
-        print(f"Erro ao enviar para todos: {e}")
         return jsonify({
             "status": "error",
             "message": str(e)
