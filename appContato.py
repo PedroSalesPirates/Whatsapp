@@ -1646,8 +1646,8 @@ def enviar_para_todos():
                 # Procurar pela última mensagem do cliente
                 ultima_mensagem_cliente = None
                 for mensagem in reversed(historico):
-                    if mensagem["tipo"] == "recebida":
-                        ultima_mensagem_cliente = mensagem["mensagem"]
+                    if mensagem["role"] == "user":
+                        ultima_mensagem_cliente = mensagem["content"]
                         break
                 
                 if ultima_mensagem_cliente:
