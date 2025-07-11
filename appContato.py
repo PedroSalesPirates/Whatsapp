@@ -52,17 +52,32 @@ def log_request_info():
     print("=" * 50)
 
 def formatar_numero_whatsapp(numero):
-    """Formata o número para o padrão aceito pela Z-API"""
+    """Normaliza o número para o formato aceito pela Z-API (DDI + DDD + número).
+
+    Regras principais:
+    1. Remove qualquer caractere que não seja dígito.
+    2. Remove prefixo '0' usado em ligações nacionais (ex: 0119 → 119).
+    3. Se já começar com '55' e possuir 12 ou 13 dígitos, considera pronto.
+    4. Se tiver 10 ou 11 dígitos (DDD + número), adiciona '55' na frente.
+    5. Caso contrário (ex: sem DDD), retorna string vazia para indicar formato inválido.
+    """
     # Remove caracteres não numéricos
-    numero_limpo = ''.join(filter(str.isdigit, numero))
-    
-    # Garante que o número tenha o formato correto (com código do país)
-    if len(numero_limpo) <= 11:  # Sem código do país
-        numero_formatado = f"55{numero_limpo}"
-    else:
-        numero_formatado = numero_limpo
-    
-    return numero_formatado
+    numero_limpo = ''.join(filter(str.isdigit, str(numero)))
+
+    # Remove prefixo de operadora (0) caso exista
+    if numero_limpo.startswith('0'):
+        numero_limpo = numero_limpo[1:]
+
+    # Já contém DDI e tamanho esperado
+    if numero_limpo.startswith('55') and len(numero_limpo) in (12, 13):
+        return numero_limpo
+
+    # Falta DDI, mas tem DDD + número (10 ou 11 dígitos)
+    if len(numero_limpo) in (10, 11):
+        return f"55{numero_limpo}"
+
+    # Formatos sem DDD (8 ou 9 dígitos) ou internacionais não suportados
+    return ""  # Indica número inválido ou não suportado
 
 def enviar_mensagem_whatsapp(numero, mensagem):
     """Envia mensagem via Z-API"""
