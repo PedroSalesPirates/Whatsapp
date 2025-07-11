@@ -591,13 +591,13 @@ def configurar_todos_webhooks(url_base):
     """Configura todos os webhooks na Z-API para a mesma URL base"""
     # Mapeamento de endpoints para configuração de webhooks e seus caminhos correspondentes
     endpoints_map = {
-        "update-webhook-received": "/leads/on-message-received",           # Ao receber
-        "update-webhook-received-delivery": "/leads/on-message-received",  # Ao receber (com notificação de enviadas por mim)
-        "update-webhook-message-status": "/leads/webhook-status",          # Status da mensagem
-        "update-webhook-delivery": "/leads/webhook-delivery",              # Ao enviar
-        "update-webhook-connected": "/leads/webhook-connected",            # Ao conectar
-        "update-webhook-disconnected": "/leads/webhook-disconnected",      # Ao desconectar
-        "update-webhook-presence": "/leads/webhook-presence"               # Presença do chat
+        "update-webhook-received": "/on-message-received",           # Ao receber (usar a rota raiz)
+        "update-webhook-received-delivery": "/on-message-received",  # Ao receber (com notificação de enviadas por mim)
+        "update-webhook-message-status": "/webhook-status",          # Status da mensagem
+        "update-webhook-delivery": "/webhook-delivery",              # Ao enviar
+        "update-webhook-connected": "/webhook-connected",            # Ao conectar
+        "update-webhook-disconnected": "/webhook-disconnected",      # Ao desconectar
+        "update-webhook-presence": "/webhook-presence"               # Presença do chat
     }
     
     # Lista de endpoints para configuração de webhooks

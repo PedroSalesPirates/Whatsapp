@@ -438,13 +438,13 @@ def configurar_todos_webhooks(url_base):
     """Configura todos os webhooks na Z-API para a mesma URL base"""
     # Mapeamento de endpoints para configuração de webhooks e seus caminhos correspondentes
     endpoints_map = {
-        "update-webhook-received": "/contato/on-message-received",           # Ao receber
-        "update-webhook-received-delivery": "/contato/on-message-received",  # Ao receber (com notificação de enviadas por mim)
-        "update-webhook-message-status": "/contato/webhook-status",          # Status da mensagem
-        "update-webhook-delivery": "/contato/webhook-delivery",              # Ao enviar
-        "update-webhook-connected": "/contato/webhook-connected",            # Ao conectar
-        "update-webhook-disconnected": "/contato/webhook-disconnected",      # Ao desconectar
-        "update-webhook-presence": "/contato/webhook-presence"               # Presença do chat
+        "update-webhook-received": "/on-message-received",           # Ao receber (usar a rota raiz)
+        "update-webhook-received-delivery": "/on-message-received",  # Ao receber (com notificação de enviadas por mim)
+        "update-webhook-message-status": "/webhook-status",          # Status da mensagem
+        "update-webhook-delivery": "/webhook-delivery",              # Ao enviar
+        "update-webhook-connected": "/webhook-connected",            # Ao conectar
+        "update-webhook-disconnected": "/webhook-disconnected",      # Ao desconectar
+        "update-webhook-presence": "/webhook-presence"               # Presença do chat
     }
     
     # Lista de endpoints para configuração de webhooks
@@ -1252,7 +1252,7 @@ def gerar_mensagem_llm(nome, cargo, empresa):
         if "{nome}" in mensagem or "{{nome}}" in mensagem:
             print("AVISO: Ainda há placeholders na mensagem!")
             # Força a substituição com uma mensagem garantida
-            mensagem = f"Fala, {primeiro_nome.strip()}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você solicitou acesso à Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: https://workdrive.zohoexternal.com/folder/ve8di4c62be7c8ac54dbb9e50f02fa98deeee. Me conta rapidinho: como tá o processo comercial aí na sua empresa?"
+            mensagem = f"Fala, {primeiro_nome.strip()}! Tudo bem? Me chamo Wald, agente de IA da Sales Pirates. Vi que você solicitou acesso à Biblioteca IA — esse material é uma mina de ouro pra quem tá querendo usar IA no comercial. Aqui tá o link: https://workdrive.zohoexternal.com/folder/ve8di4c62be7c8ac54dbb9e50f02fa98deeeer. Me conta rapidinho: como tá o processo comercial aí na sua empresa?"
         
         return mensagem
     except Exception as e:
@@ -1547,165 +1547,183 @@ def enviar_para_todos():
         nome_filtro = request.args.get('nome', '')
         
         # Buscar todos os clientes na tabela biblioteca-ia
-        if nome_filtro:
-            print(f"Filtrando clientes pelo nome: {nome_filtro}")
-            # Se especificou um nome, filtra por ele
-            if force:
-                response = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").execute()
+        try:
+            if nome_filtro:
+                print(f"Filtrando clientes pelo nome: {nome_filtro}")
+                # Se especificou um nome, filtra por ele
+                if force:
+                    # Forçar envio para todos com o nome especificado
+                    response = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").execute()
+                else:
+                    # Buscar clientes com o nome especificado que não receberam mensagem ainda
+                    # Primeiro os que têm mensagem_enviada como null
+                    response_null = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").is_("mensagem_enviada", "null").execute()
+                    
+                    # Depois os que têm mensagem_enviada como false
+                    response_false = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").eq("mensagem_enviada", False).execute()
+                    
+                    # Combinar os resultados
+                    all_data = []
+                    if response_null.data:
+                        all_data.extend(response_null.data)
+                    if response_false.data:
+                        all_data.extend(response_false.data)
+                    
+                    # Criar objeto de resposta
+                    class CombinedResponse:
+                        def __init__(self, data):
+                            self.data = data
+                    
+                    response = CombinedResponse(all_data)
             else:
-                response = supabase.table("biblioteca-ia").select("*").ilike("nome", f"%{nome_filtro}%").or_("mensagem_enviada.is.null,mensagem_enviada.eq.false").execute()
-        else:
-            # Sem filtro de nome
-            if force:
-                # Se forçar, busca todos os clientes
-                response = supabase.table("biblioteca-ia").select("*").execute()
-            else:
-                # Caso contrário, busca apenas os que não receberam mensagem ainda
-                response = supabase.table("biblioteca-ia").select("*").or_("mensagem_enviada.is.null,mensagem_enviada.eq.false").execute()
+                # Sem filtro de nome
+                if force:
+                    # Se forçar, busca todos os clientes
+                    response = supabase.table("biblioteca-ia").select("*").execute()
+                else:
+                    # Buscar clientes que não receberam mensagem ainda
+                    # Primeiro os que têm mensagem_enviada como null
+                    response_null = supabase.table("biblioteca-ia").select("*").is_("mensagem_enviada", "null").execute()
+                    
+                    # Depois os que têm mensagem_enviada como false
+                    response_false = supabase.table("biblioteca-ia").select("*").eq("mensagem_enviada", False).execute()
+                    
+                    # Combinar os resultados
+                    all_data = []
+                    if response_null.data:
+                        all_data.extend(response_null.data)
+                    if response_false.data:
+                        all_data.extend(response_false.data)
+                    
+                    # Criar objeto de resposta
+                    class CombinedResponse:
+                        def __init__(self, data):
+                            self.data = data
+                    
+                    response = CombinedResponse(all_data)
+                    
+            print(f"Total de clientes encontrados: {len(response.data)}")
+        except Exception as e:
+            print(f"Erro na consulta ao Supabase: {e}")
+            return jsonify({"status": "error", "message": f"Erro na consulta: {str(e)}"}), 500
         
         if not response.data:
             return jsonify({
                 "status": "info",
                 "message": "Nenhum cliente encontrado para envio de mensagem"
             }), 200
-            
-        resultados = []
-        sucessos = 0
-        falhas = 0
         
-        for cliente in response.data:
-            try:
-                nome = cliente.get('nome', 'Cliente')
-                whatsapp = cliente.get('whatsapp', '')
-                cargo = cliente.get('cargo', 'profissional')
-                empresa = cliente.get('empresa', 'sua empresa')
-                
-                # Pular se não tiver telefone
-                if not whatsapp:
-                    resultados.append({
-                        "nome": nome,
-                        "status": "pulado",
-                        "motivo": "Telefone não encontrado"
-                    })
-                    falhas += 1
-                    continue
-                
-                # Formatar o número para garantir consistência
-                whatsapp_formatado = formatar_numero_whatsapp(whatsapp)
-                
-                # Verificar se a mensagem já foi enviada (redundante, mas por segurança)
-                mensagem_ja_enviada = cliente.get('mensagem_enviada', False)
-                if mensagem_ja_enviada and not force:
-                    resultados.append({
-                        "nome": nome,
-                        "whatsapp": whatsapp_formatado,
-                        "status": "pulado",
-                        "motivo": "Mensagem já enviada anteriormente"
-                    })
-                    continue
-                
-                print(f"Enviando para: {nome}")
-                print(f"WhatsApp: {whatsapp_formatado}")
-                print(f"Cargo: {cargo}")
-                print(f"Empresa: {empresa}")
-                
-                # Obter histórico da conversa (se existir)
-                historico = obter_historico_conversa(whatsapp_formatado)
-                
-                # Verificar se já existe histórico
-                if historico:
-                    # Se já existe histórico, gera resposta com base no contexto
-                    # Usa a última mensagem do cliente como referência, ou uma mensagem padrão se não houver
-                    ultima_mensagem_cliente = None
-                    for msg in reversed(historico):
-                        if msg["role"] == "user":
-                            ultima_mensagem_cliente = msg["content"]
-                            break
-                    
-                    if ultima_mensagem_cliente:
-                        # Gera resposta com base no histórico e na última mensagem
-                        mensagem = gerar_resposta_ia(historico, ultima_mensagem_cliente, nome)
-                        
-                        # Verificação adicional para placeholders que possam ter escapado
-                        primeiro_nome = obter_primeiro_nome(nome)
-                        if "{{nome}}" in mensagem:
-                            mensagem = mensagem.replace("{{nome}}", primeiro_nome)
-                            print("Substituído placeholder {{nome}} pelo primeiro nome do cliente")
-                        if "{nome}" in mensagem:
-                            mensagem = mensagem.replace("{nome}", primeiro_nome)
-                            print("Substituído placeholder {nome} pelo primeiro nome do cliente")
-                        
-                        # Verificar se há repetições com o histórico completo
-                        tem_repeticao, mensagem_corrigida = verificar_repeticoes(historico, mensagem)
-                        if tem_repeticao:
-                            print("Detectada repetição na resposta. Usando versão corrigida.")
-                            mensagem = mensagem_corrigida
-                    else:
-                        # Se não encontrou mensagem do cliente, usa mensagem inicial
-                        mensagem = gerar_mensagem_llm(nome, cargo, empresa)
-                else:
-                    # Se não há histórico, gera mensagem inicial
-                    mensagem = gerar_mensagem_llm(nome, cargo, empresa)
-                
-                # Adiciona um tempo de espera para simular digitação humana
-                tempo_espera = min(1 + (len(mensagem) / 100), 3)  # Tempo reduzido para envio em massa
-                print(f"Aguardando {tempo_espera:.1f} segundos antes de enviar...")
-                time.sleep(tempo_espera)
-                
-                # Envia mensagem
-                sucesso = enviar_mensagem_whatsapp(whatsapp_formatado, mensagem)
-                
-                if sucesso:
-                    # Salva mensagem enviada
-                    salvar_conversa(whatsapp_formatado, nome, mensagem, "enviada")
-                    
-                    # Atualiza o status no banco de dados
-                    supabase.table("biblioteca-ia").update({"mensagem_enviada": True}).eq("id", cliente['id']).execute()
-                    
-                    resultados.append({
-                        "nome": nome,
-                        "whatsapp": whatsapp_formatado,
-                        "status": "sucesso",
-                        "mensagem": mensagem,
-                        "com_historico": len(historico) > 0
-                    })
-                    
-                    sucessos += 1
-                    
-                    # Aguardar um tempo entre os envios para evitar bloqueios
-                    time.sleep(1)
-                else:
-                    resultados.append({
-                        "nome": nome,
-                        "whatsapp": whatsapp_formatado,
-                        "status": "falha",
-                        "motivo": "Erro ao enviar mensagem"
-                    })
-                    falhas += 1
-                    
-            except Exception as e:
-                print(f"Erro ao processar cliente {cliente.get('nome', 'desconhecido')}: {e}")
+        # Inicializar variáveis para contagem de sucesso e falha
+        sucesso_count = 0
+        falha_count = 0
+        resultados = []
+        
+        for usuario in response.data:
+            nome = usuario['nome']
+            whatsapp = usuario['whatsapp']
+            cargo = usuario.get('cargo', 'profissional')
+            empresa = usuario.get('empresa', 'sua empresa')
+            
+            # Formatar o número para garantir consistência
+            whatsapp_formatado = formatar_numero_whatsapp(whatsapp)
+            
+            # Verifica se a mensagem já foi enviada e se deve forçar o envio
+            mensagem_ja_enviada = usuario.get('mensagem_enviada', False)
+            if mensagem_ja_enviada and not force:
+                print(f"Mensagem já foi enviada anteriormente para {nome}. Pulando abordagem inicial...")
                 resultados.append({
-                    "nome": cliente.get('nome', 'desconhecido'),
-                    "status": "erro",
-                    "motivo": str(e)
+                    "nome": nome,
+                    "whatsapp": whatsapp_formatado,
+                    "status": "info",
+                    "mensagem": f"Mensagem já foi enviada anteriormente para {nome}. Use o parâmetro force=true para enviar novamente."
                 })
-                falhas += 1
+                continue
+            
+            print(f"Enviando mensagem para: {nome}")
+            print(f"WhatsApp: {whatsapp_formatado}")
+            print(f"Cargo: {cargo}")
+            print(f"Empresa: {empresa}")
+            
+            # Obter histórico de conversas
+            historico = obter_historico_conversa(whatsapp_formatado)
+            
+            # Verificar se existe histórico de conversas
+            if historico:
+                # Procurar pela última mensagem do cliente
+                ultima_mensagem_cliente = None
+                for mensagem in reversed(historico):
+                    if mensagem["role"] == "user":
+                        ultima_mensagem_cliente = mensagem["content"]
+                        break
+                
+                if ultima_mensagem_cliente:
+                    # Se encontrou uma mensagem do cliente, usa ela para gerar resposta contextualizada
+                    resposta = gerar_resposta_ia(historico, ultima_mensagem_cliente, nome)
+                    com_historico = True
+                else:
+                    # Se não encontrou mensagem do cliente, usa a função gerar_mensagem_llm para gerar a mensagem inicial
+                    resposta = gerar_mensagem_llm(nome, cargo, empresa)
+                    com_historico = False
+            else:
+                # Se não existe histórico, usa a função gerar_mensagem_llm para gerar a mensagem inicial
+                resposta = gerar_mensagem_llm(nome, cargo, empresa)
+                com_historico = False
+            
+            # Verificação adicional para placeholders que possam ter escapado
+            primeiro_nome = obter_primeiro_nome(nome)
+            if "{{nome}}" in resposta:
+                resposta = resposta.replace("{{nome}}", primeiro_nome)
+                print("Substituído placeholder {{nome}} pelo primeiro nome do cliente")
+            if "{nome}" in resposta:
+                resposta = resposta.replace("{nome}", primeiro_nome)
+                print("Substituído placeholder {nome} pelo primeiro nome do cliente")
+                
+            # Verificar novamente se há repetições com o histórico completo
+            tem_repeticao, resposta_corrigida = verificar_repeticoes(historico, resposta)
+            if tem_repeticao:
+                print("Detectada repetição na resposta após substituição de placeholders. Usando versão corrigida.")
+                resposta = resposta_corrigida
+                
+            # Adiciona um tempo de espera para simular digitação humana
+            tempo_espera = min(2 + (len(resposta) / 50), 8)
+            print(f"Aguardando {tempo_espera:.1f} segundos antes de enviar resposta...")
+            time.sleep(tempo_espera)
+            
+            # Enviar resposta
+            sucesso = enviar_mensagem_whatsapp(whatsapp_formatado, resposta)
+            
+            if sucesso:
+                # Salva resposta enviada
+                salvar_conversa(whatsapp_formatado, nome, resposta, "enviada")
+                
+                # Atualiza o status no banco de dados
+                supabase.table("biblioteca-ia").update({"mensagem_enviada": True}).eq("id", usuario['id']).execute()
+                
+                sucesso_count += 1
+                resultados.append({
+                    "nome": nome,
+                    "whatsapp": whatsapp_formatado,
+                    "status": "success",
+                    "mensagem": resposta,
+                    "com_historico": com_historico
+                })
+            else:
+                falha_count += 1
+                resultados.append({
+                    "nome": nome,
+                    "whatsapp": whatsapp_formatado,
+                    "status": "error",
+                    "mensagem": "Falha ao enviar mensagem"
+                })
         
         return jsonify({
-            "status": "completed",
-            "total_clientes": len(response.data),
-            "sucessos": sucessos,
-            "falhas": falhas,
+            "status": "success" if sucesso_count > 0 else "info",
+            "message": f"{sucesso_count} mensagens enviadas com sucesso, {falha_count} falhas",
             "resultados": resultados
-        })
-            
+        }), 200
     except Exception as e:
         print(f"Erro ao enviar para todos: {e}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     # Verifica se a tabela Conversas existe no Supabase
