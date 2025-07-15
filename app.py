@@ -1683,6 +1683,148 @@ def testar_dani_webhook():
             "message": str(e)
         }), 500
 
+# ============================ NOVA ROTA: ENVIAR PARA TODOS OS LEADS ============================
+@app.route('/enviar-para-todos', methods=['GET'])
+@app.route('/lead/enviar-para-todos', methods=['GET'])
+def enviar_para_todos():
+    """Envia mensagem inicial para todos os leads da tabela 'leads'.
+    Parâmetros opcionais (query string):
+        - force=true  -> força o reenvio mesmo que já tenha sido enviado antes
+        - nome=<texto> -> filtra leads cujo nome contenha o texto informado (case-insensitive)
+    """
+    try:
+        # Query params
+        force = request.args.get('force', '').lower() == 'true'
+        nome_filtro = request.args.get('nome', '')
+
+        # ======================= BUSCA DOS LEADS NO SUPABASE =======================
+        if nome_filtro:
+            print(f"Filtrando leads pelo nome: {nome_filtro}")
+            if force:
+                response = supabase.table("leads").select("*").ilike("name", f"%{nome_filtro}%").execute()
+            else:
+                # Combina registros com mensagem_enviada NULL ou False
+                resp_null = supabase.table("leads").select("*").ilike("name", f"%{nome_filtro}%").is_("mensagem_enviada", "null").execute()
+                resp_false = supabase.table("leads").select("*").ilike("name", f"%{nome_filtro}%").eq("mensagem_enviada", False).execute()
+                all_data = []
+                if resp_null.data:
+                    all_data.extend(resp_null.data)
+                if resp_false.data:
+                    all_data.extend(resp_false.data)
+                class CombinedResp:
+                    def __init__(self, data):
+                        self.data = data
+                response = CombinedResp(all_data)
+        else:
+            if force:
+                response = supabase.table("leads").select("*").execute()
+            else:
+                resp_null = supabase.table("leads").select("*").is_("mensagem_enviada", "null").execute()
+                resp_false = supabase.table("leads").select("*").eq("mensagem_enviada", False).execute()
+                all_data = []
+                if resp_null.data:
+                    all_data.extend(resp_null.data)
+                if resp_false.data:
+                    all_data.extend(resp_false.data)
+                class CombinedResp:
+                    def __init__(self, data):
+                        self.data = data
+                response = CombinedResp(all_data)
+
+        if not response.data:
+            return jsonify({
+                "status": "info",
+                "message": "Nenhum lead encontrado para envio de mensagem"
+            }), 200
+
+        sucesso_count = 0
+        falha_count = 0
+        resultados = []
+
+        for lead in response.data:
+            nome = lead.get('name', 'Cliente')
+            whatsapp = lead.get('phone', '')
+            cargo = lead.get('cargo', 'profissional')
+            empresa = lead.get('empresa', 'sua empresa')
+
+            whatsapp_formatado = formatar_numero_whatsapp(whatsapp)
+            mensagem_ja_enviada = lead.get('mensagem_enviada', False)
+            if mensagem_ja_enviada and not force:
+                print(f"Mensagem já enviada anteriormente para {nome}. Pulando...")
+                resultados.append({
+                    "nome": nome,
+                    "whatsapp": whatsapp_formatado,
+                    "status": "info",
+                    "mensagem": f"Mensagem já foi enviada anteriormente para {nome}. Use force=true para enviar novamente."
+                })
+                continue
+
+            print(f"Preparando envio para: {nome} | {whatsapp_formatado}")
+
+            # Histórico de conversa (se existir)
+            historico = obter_historico_conversa(whatsapp_formatado)
+
+            if historico:
+                # Procura última mensagem do usuário para contextualizar
+                ultima_msg_cliente = next((m['content'] for m in reversed(historico) if m['role'] == 'user'), None)
+                if ultima_msg_cliente:
+                    resposta = gerar_resposta_ia(historico, ultima_msg_cliente, nome)
+                    com_historico = True
+                else:
+                    resposta = gerar_mensagem_llm(nome, cargo, empresa)
+                    com_historico = False
+            else:
+                resposta = gerar_mensagem_llm(nome, cargo, empresa)
+                com_historico = False
+
+            # Substituição de placeholders residuais
+            primeiro_nome = obter_primeiro_nome(nome)
+            resposta = resposta.replace("{{nome}}", primeiro_nome).replace("{nome}", primeiro_nome)
+
+            # Verifica repetições
+            tem_rep, resposta = verificar_repeticoes(historico, resposta)
+
+            # Pequena pausa para simular digitação humana
+            time.sleep(min(2 + (len(resposta) / 50), 8))
+
+            sucesso_envio = enviar_mensagem_whatsapp(whatsapp_formatado, resposta)
+            if sucesso_envio:
+                salvar_conversa(whatsapp_formatado, nome, resposta, "enviada")
+                # Marca no banco que a mensagem foi enviada
+                try:
+                    supabase.table("leads").update({"mensagem_enviada": True}).eq("id", lead['id']).execute()
+                except Exception as e:
+                    print(f"Erro ao atualizar flag mensagem_enviada para {nome}: {e}")
+                sucesso_count += 1
+                resultados.append({
+                    "nome": nome,
+                    "whatsapp": whatsapp_formatado,
+                    "status": "success",
+                    "mensagem": resposta,
+                    "com_historico": com_historico
+                })
+            else:
+                falha_count += 1
+                resultados.append({
+                    "nome": nome,
+                    "whatsapp": whatsapp_formatado,
+                    "status": "error",
+                    "mensagem": "Falha ao enviar mensagem"
+                })
+
+        status_geral = "success" if sucesso_count > 0 else "info"
+        return jsonify({
+            "status": status_geral,
+            "message": f"{sucesso_count} mensagens enviadas com sucesso, {falha_count} falhas",
+            "resultados": resultados
+        }), 200
+
+    except Exception as e:
+        print(f"Erro ao enviar para todos: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ============================ FIM DA NOVA ROTA ============================
+
 if __name__ == "__main__":
     # Verifica se a tabela Conversas existe no Supabase
     try:
